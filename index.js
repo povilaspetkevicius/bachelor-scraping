@@ -60,12 +60,7 @@ writeError = function (error) {
 }
 
 writeResponse = function (data) {
-    var existingModel = flightModel.find({ 
-        flightNumber: data.flightNumber,
-        date: data.date,
-        airport: data.airport
-    });
-    
+
     var responseToWrite = new flightModel({
         flightNumber: data.flightNumber,
         date: data.date,
@@ -75,16 +70,26 @@ writeResponse = function (data) {
         expectedTime: data.expectedTime,
         status: data.status
     });
-    console.log(existingModel);
 
-    // existingModel.forEach(model => {
-    //     if (model.status === responseToWrite.status && model.expectedTime === responseToWrite.expectedTime){
-    //         return;
-    //     }
-    // })
-    responseToWrite.save((err) => {
-        if (err) throw err;
-    });
+
+    var existingModel = flightModel.find({ 
+        flightNumber: data.flightNumber,
+        date: data.date,
+        airport: data.airport
+    }, (err, res) => {
+        if (err) throw error;
+        else{
+            res.forEach(value => {
+                if(value.status == responseToWrite.status && value.expectedTime == responseToWrite.expectedTime){
+                    return;
+                } else {
+                    responseToWrite.save((err) => {
+                        if (err) throw err;
+                    });
+                }
+            })
+        }
+    })
 }
 
 var URLS_array = [
