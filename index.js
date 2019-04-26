@@ -23,14 +23,16 @@ mongoose.connect(mongo_url, mongo_options, function (err, res) {
 })
 
 
-var scheduleSchema = new Schema({
+var flightSchema = new Schema({
     flightNumber: String,
+    date: String,
+    airport: String,
     scheduledTimeOfArrival: String,
     scheduledTimeOfDeparture: String,
     expectedTime: String,
     status: String
 });
-var scheduleModel = mongoose.model('schedule', scheduleSchema);
+var flightModel = mongoose.model('flight', flightSchema);
 
 var errorSchema = new Schema({
     date: Date,
@@ -58,27 +60,64 @@ writeError = function (error) {
 }
 
 writeResponse = function (data) {
-    var responseToWrite = new scheduleModel({
+    var existingModel = flightModel.find({ 
         flightNumber: data.flightNumber,
+        date: data.date,
+        airport: data.airport
+    });
+    
+    var responseToWrite = new flightModel({
+        flightNumber: data.flightNumber,
+        date: data.date,
+        airport: data.airport,
         scheduledTimeOfArrival: data.scheduledTimeOfArrival,
         scheduledTimeOfDeparture: data.scheduledTimeOfDeparture,
         expectedTime: data.expectedTime,
         status: data.status
     });
+    console.log(existingModel);
+
+    // existingModel.forEach(model => {
+    //     if (model.status === responseToWrite.status && model.expectedTime === responseToWrite.expectedTime){
+    //         return;
+    //     }
+    // })
     responseToWrite.save((err) => {
         if (err) throw err;
     });
 }
 
 var URLS_array = [
-    'https://www.palanga-airport.lt/lt/pries-skrydi/skrydziu-informacija/skrydziu-tvarkarastis?ajax=1&limit=10&r=1234567890&direction=arrival&destination=&date-from=' + moment().format('YYYY-MM-DD') + '&date-to=',
-    'https://www.palanga-airport.lt/lt/pries-skrydi/skrydziu-informacija/skrydziu-tvarkarastis?ajax=1&limit=10&r=1234567890&direction=departure&destination=&date-from=' + moment().format('YYYY-MM-DD') + '&date-to=',
-    'https://www.vilnius-airport.lt/lt/pries-skrydi/skrydziu-informacija/skrydziu-tvarkarastis?ajax=1&limit=10&r=1234567890&direction=arrival&destination=&date-from=' + moment().format('YYYY-MM-DD') + '&date-to=',
-    'https://www.vilnius-airport.lt/lt/pries-skrydi/skrydziu-informacija/skrydziu-tvarkarastis?ajax=1&limit=10&r=1234567890&direction=departure&destination=&date-from=' + moment().format('YYYY-MM-DD') + '&date-to=',
-    'https://www.kaunas-airport.lt/lt/pries-skrydi/skrydziu-informacija/skrydziu-tvarkarastis?ajax=1&limit=10&r=1234567890&direction=arrival&destination=&date-from=' + moment().format('YYYY-MM-DD') + '&date-to=',
-    'https://www.kaunas-airport.lt/lt/pries-skrydi/skrydziu-informacija/skrydziu-tvarkarastis?ajax=1&limit=10&r=1234567890&direction=departure&destination=&date-from=' + moment().format('YYYY-MM-DD') + '&date-to=',
+    'https://www.palanga-airport.lt/lt/pries-skrydi/skrydziu-informacija/skrydziu-tvarkarastis?ajax=1&limit=5&r=1234567890&direction=arrival&destination=&date-from=' + moment().format('YYYY-MM-DD') + '&date-to=',
+    'https://www.palanga-airport.lt/lt/pries-skrydi/skrydziu-informacija/skrydziu-tvarkarastis?ajax=1&limit=5&r=1234567890&direction=departure&destination=&date-from=' + moment().format('YYYY-MM-DD') + '&date-to=',
+    'https://www.vilnius-airport.lt/lt/pries-skrydi/skrydziu-informacija/skrydziu-tvarkarastis?ajax=1&limit=5&r=1234567890&direction=arrival&destination=&date-from=' + moment().format('YYYY-MM-DD') + '&date-to=',
+    'https://www.vilnius-airport.lt/lt/pries-skrydi/skrydziu-informacija/skrydziu-tvarkarastis?ajax=1&limit=5&r=1234567890&direction=departure&destination=&date-from=' + moment().format('YYYY-MM-DD') + '&date-to=',
+    'https://www.kaunas-airport.lt/lt/pries-skrydi/skrydziu-informacija/skrydziu-tvarkarastis?ajax=1&limit=5&r=1234567890&direction=arrival&destination=&date-from=' + moment().format('YYYY-MM-DD') + '&date-to=',
+    'https://www.kaunas-airport.lt/lt/pries-skrydi/skrydziu-informacija/skrydziu-tvarkarastis?ajax=1&limit=5&r=1234567890&direction=departure&destination=&date-from=' + moment().format('YYYY-MM-DD') + '&date-to=',
 ]
-var flights = [];
+
+function getAirport(url) {
+    switch(url){
+        case URLS_array[0]:{
+            return 'PLQ';
+        }
+        case URLS_array[1]:{
+            return 'PLQ';
+        }
+        case URLS_array[2]:{
+            return 'VNO';
+        }
+        case URLS_array[3]:{
+            return 'VNO';
+        }
+        case URLS_array[4]:{
+            return 'KUN';
+        }
+        case URLS_array[5]:{
+            return 'KUN';
+        }
+    }
+}
 
 function getFlightsForAirport(airportUrl) {
     request(airportUrl, options, function (error, response, html) {
@@ -90,6 +129,8 @@ function getFlightsForAirport(airportUrl) {
                 $(tr_el).find("td[data-label='Skrydžio numeris']").each((td_i, td_el) => {
                     var flight = {
                         flightNumber: '',
+                        date: moment().format('YYYY-MM-DD'),
+                        airport: getAirport(airportUrl),
                         scheduledTimeOfArrival: '',
                         scheduledTimeOfDeparture: '',
                         expectedTime: '',
@@ -122,7 +163,7 @@ function getFlightsForAirport(airportUrl) {
                     })
                     var rightConsequences = (flight.expectedTime !== ''
                         && (compareTime(flight.scheduledTimeOfArrival, currentTime) === 1)
-                        || compareTime(flight.scheduledTimeOfArrival, currentTime) === 1)
+                        || compareTime(flight.scheduledTimeOfDeparture, currentTime) === 1)
                         || (flight.status === 'Vėluojama');
                     if (rightConsequences) {
                         try {
@@ -155,7 +196,7 @@ function extractAllFlights() {
         getFlightsForAirport(url);
     });
 }
-//'*/10 5-23 * * *'
-schedule.scheduleJob('*/10 5-23 * * *', function () {
+//'*/10 5-23 * * *' -- Kas 10 minučių nuo 5 ryto iki 12 vakaro. 
+// schedule.scheduleJob('*/10 5-23 * * *', function () {
     extractAllFlights();
-});
+// });
