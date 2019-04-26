@@ -18,7 +18,7 @@ mongoose.connect(mongo_url, mongo_options, function (err, res) {
     if (err) {
         writeError(error);
     } else {
-        console.log('Succeeded connected to: ' + mongo_url);
+        console.log('Succees. connected to: ' + mongo_url);
     }
 })
 
@@ -202,6 +202,6 @@ function extractAllFlights() {
     });
 }
 //'*/10 5-23 * * *' -- Kas 10 minučių nuo 5 ryto iki 12 vakaro. 
-// schedule.scheduleJob('*/10 5-23 * * *', function () {
+schedule.scheduleJob('*/10 5-23 * * *', function () {
     extractAllFlights();
-// });
+});
