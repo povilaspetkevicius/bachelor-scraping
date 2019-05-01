@@ -32,8 +32,6 @@ var flightSchema = new Schema({
     expectedTime: String,
     status: String
 });
-var flightModel = mongoose.model('flight', flightSchema);
-
 var errorSchema = new Schema({
     date: Date,
     errorMessage: String,
@@ -59,7 +57,7 @@ writeError = function (error) {
     });
 }
 
-writeResponse = function (data) {
+writeFlight = function (data) {
 
     var responseToWrite = new flightModel({
         flightNumber: data.flightNumber,
@@ -72,7 +70,7 @@ writeResponse = function (data) {
     });
 
 
-    var existingModel = flightModel.find({ 
+    flightModel.find({ 
         flightNumber: data.flightNumber,
         date: data.date,
         airport: data.airport
@@ -82,14 +80,13 @@ writeResponse = function (data) {
             res.forEach(value => {
                 if(value.status == responseToWrite.status && value.expectedTime == responseToWrite.expectedTime){
                     return;
-                } else {
-                    responseToWrite.save((err) => {
-                        if (err) throw err;
-                    });
-                }
+                } 
             })
         }
-    })
+    });
+    responseToWrite.save((err) => {
+        if (err) throw err;
+    });
 }
 
 var URLS_array = [
@@ -172,7 +169,7 @@ function getFlightsForAirport(airportUrl) {
                         || (flight.status === 'Vėluojama');
                     if (rightConsequences) {
                         try {
-                            writeResponse(flight);
+                            writeFlight(flight);
                         } catch (err) {
                             setTimeout(writeError(err), 3000);
                         }
@@ -180,7 +177,7 @@ function getFlightsForAirport(airportUrl) {
                 });
             })
         } else {
-            console.log(error, response.statusCode);
+            console.log(error, response);
             writeError(error);
         }
         console.log('Data extracted on ' + moment());
