@@ -37,7 +37,7 @@ var errorSchema = new Schema({
     errorMessage: String,
 });
 var errorModel = mongoose.model('error', errorSchema);
-
+var flightModel = mongoose.model('flight', flightSchema);
 var options = {
     method: 'GET',
     headers: { 'user-agent': 'node.js' }
