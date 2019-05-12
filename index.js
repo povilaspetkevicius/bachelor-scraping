@@ -68,7 +68,6 @@ writeError = function (error) {
     });
 }
 writeInfo = function (data) {
-    console.log('called');
     let flightInfoDocument = new flightInfoModel({
         flightNumber: data.flightNumber,
         airline: data.airline,
@@ -80,7 +79,6 @@ writeInfo = function (data) {
     flightInfoModel.find({
         flightNumber: data.flightNumber
     }, (err, res) => {
-        console.log(err, res);
         if (err) throw err;
         else {
             if (res && res.length > 0) return;
