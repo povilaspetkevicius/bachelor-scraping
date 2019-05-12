@@ -6,7 +6,7 @@ const schedule = require('node-schedule');
 var Schema = mongoose.Schema;
 
 const mongo_url = 'mongodb://localhost:27017/airport_data';
-
+var disruptionStatus = ["Atšaukta", "ATŠAUKTA", "VĖLUOJA", "Vėluojama", "Nežinoma"];
 const mongo_options = {
     useNewUrlParser: true,
     reconnectTries: Number.MAX_VALUE,
@@ -32,12 +32,23 @@ var flightSchema = new Schema({
     expectedTime: String,
     status: String
 });
+
+var flightInfoSchema = new Schema({
+    flightNumber: String,
+    airline: String,
+    arrival: String,
+    arrivalIATA: String,
+    departure: String,
+    departureIATA: String
+});
+
 var errorSchema = new Schema({
     date: Date,
     errorMessage: String,
 });
 var errorModel = mongoose.model('error', errorSchema);
 var flightModel = mongoose.model('flight', flightSchema);
+var flightInfoModel = mongoose.model('airport', flightInfoSchema);
 var options = {
     method: 'GET',
     headers: { 'user-agent': 'node.js' }
@@ -56,7 +67,31 @@ writeError = function (error) {
         };
     });
 }
-
+writeInfo = function (data) {
+    console.log('called');
+    let flightInfoDocument = new flightInfoModel({
+        flightNumber: data.flightNumber,
+        airline: data.airline,
+        arrival: data.arrival,
+        arrivalIATA: data.arrivalIATA,
+        departure: data.departure,
+        departureIATA: data.departureIATA
+    })
+    flightInfoModel.find({
+        flightNumber: data.flightNumber
+    }, (err, res) => {
+        console.log(err, res);
+        if (err) throw err;
+        else {
+            if (res && res.length > 0) return;
+            else {
+                flightInfoDocument.save((err) => {
+                    if (err) throw err;
+                })
+            }
+        }
+    })
+}
 writeFlight = function (data) {
 
     var responseToWrite = new flightModel({
@@ -70,17 +105,17 @@ writeFlight = function (data) {
     });
 
 
-    flightModel.find({ 
+    flightModel.find({
         flightNumber: data.flightNumber,
         date: data.date,
         airport: data.airport
     }, (err, res) => {
         if (err) throw error;
-        else{
+        else {
             res.forEach(value => {
-                if(value.status == responseToWrite.status && value.expectedTime == responseToWrite.expectedTime){
+                if (value.status == responseToWrite.status && value.expectedTime == responseToWrite.expectedTime) {
                     return;
-                } 
+                }
             })
         }
     });
@@ -99,23 +134,23 @@ var URLS_array = [
 ]
 
 function getAirport(url) {
-    switch(url){
-        case URLS_array[0]:{
+    switch (url) {
+        case URLS_array[0]: {
             return 'PLQ';
         }
-        case URLS_array[1]:{
+        case URLS_array[1]: {
             return 'PLQ';
         }
-        case URLS_array[2]:{
+        case URLS_array[2]: {
             return 'VNO';
         }
-        case URLS_array[3]:{
+        case URLS_array[3]: {
             return 'VNO';
         }
-        case URLS_array[4]:{
+        case URLS_array[4]: {
             return 'KUN';
         }
-        case URLS_array[5]:{
+        case URLS_array[5]: {
             return 'KUN';
         }
     }
@@ -138,12 +173,35 @@ function getFlightsForAirport(airportUrl) {
                         expectedTime: '',
                         status: ''
                     };
+                    let flightInfo = {
+                        flightNumber: '',
+                        airline: '',
+                        arrival: '',
+                        arrivalIATA: '',
+                        departure: '',
+                        departureIATA: ''
+                    }
                     flight.flightNumber = $(td_el).find('a').eq(0).text().trim() || 'NA';
+                    flightInfo.flightNumber = $(td_el).find('a').eq(0).text().trim() || 'NA';
                     $(td_el).find('.modal-body').each((i, e) => {
                         $(e).find('div').each((index, el) => {
 
                             var title = $(el).children('span').eq(0).text().trim()
                             switch (title) {
+                                case 'Oro linijų bendrovė::': {
+                                    flightInfo.airline = $(el).children('span').eq(1).text().trim();
+                                    break;
+                                }
+                                case 'Atvyksta iš:': {
+                                    flightInfo.arrival = $(el).children('span').eq(1).text().trim().split(" ")[0];
+                                    flightInfo.arrivalIATA = $(el).children('span').eq(1).text().trim().split(" ")[1];
+                                    break;
+                                }
+                                case 'Išvyksta į:': {
+                                    flightInfo.departure = $(el).children('span').eq(1).text().trim().split(" ")[0];
+                                    flightInfo.departureIATA = $(el).children('span').eq(1).text().trim().split(" ")[1];
+                                    break;
+                                }
                                 case 'Atvykimo laikas:': {
                                     flight.scheduledTimeOfArrival = $(el).children('span').eq(1).text().trim();
                                     break;
@@ -163,12 +221,13 @@ function getFlightsForAirport(airportUrl) {
                             }
                         })
                     })
-                    var rightConsequences = (flight.expectedTime !== ''
+                    let isFlightReadyToInsertToDB = (flight.expectedTime !== ''
                         && (compareTime(flight.scheduledTimeOfArrival, currentTime) === 1)
                         || compareTime(flight.scheduledTimeOfDeparture, currentTime) === 1)
-                        || (flight.status === 'Vėluojama');
-                    if (rightConsequences) {
+                        || (disruptionStatus.find((status) => { status === flight.status }) !== undefined);
+                    if (isFlightReadyToInsertToDB) {
                         try {
+                            writeInfo(flightInfo);
                             writeFlight(flight);
                         } catch (err) {
                             setTimeout(writeError(err), 3000);
@@ -180,7 +239,6 @@ function getFlightsForAirport(airportUrl) {
             console.log(error, response);
             writeError(error);
         }
-        console.log('Data extracted on ' + moment());
     });
 }
 function compareTime(timeA, timeB) {
